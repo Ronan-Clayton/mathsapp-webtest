@@ -68,6 +68,16 @@
   </ol>
 
   <div id="summary">Checking…</div>
+
+  <!-- Full screen: tapped by hand, so it isn't part of the five automatic checks (Ronan, 14 October 2026: the demo's
+       Full screen button does nothing in Lily's Smoothwall browser; this says whether the browser blocks it). -->
+  <ol style="margin-top:20px">
+    <li id="fs"><div class="mark">?</div><div>
+      <div class="name">6. Full screen (tap the button)</div>
+      <div class="detail" id="fs-detail">Tap the button, then take the screenshot.</div>
+      <div class="show"><button id="fs-try" type="button" style="font:inherit;font-weight:600;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)">Try full screen</button></div>
+      <div class="detail" id="fs-support" style="margin-top:8px"></div></div></li>
+  </ol>
   <div id="device"></div>
 </main>
 
@@ -126,6 +136,39 @@
       localStorage.removeItem('__check');
       set('storage', ok, ok ? 'Settings can be saved.' : 'Settings could not be read back.');
     } catch (e) { set('storage', false, 'Saving is blocked (' + e.message + '). Settings would be forgotten.'); }
+  })();
+
+  // 6. What the browser says about full screen, and what happens when asked.
+  (function () {
+    var d = document, el = d.documentElement;
+    var has = function (x) { return x ? 'yes' : 'no'; };
+    d.getElementById('fs-support').textContent =
+      'Browser says full screen is allowed: ' + has(d.fullscreenEnabled) + ' (standard), ' + has(d.webkitFullscreenEnabled) + ' (Apple). ' +
+      'Request available: ' + has(el.requestFullscreen) + ' (standard), ' + has(el.webkitRequestFullscreen) + ' (Apple).';
+    var li = d.getElementById('fs'), detail = d.getElementById('fs-detail'), done = false, timer;
+    function show(ok, text) {
+      if (done) return; done = true; clearTimeout(timer);
+      li.className = ok ? 'ok' : 'bad';
+      li.querySelector('.mark').textContent = ok ? '✓' : '✕';
+      detail.textContent = text;
+    }
+    var on = function () { return !!(d.fullscreenElement || d.webkitFullscreenElement); };
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (n) {
+      d.addEventListener(n, function () { if (on()) show(true, 'Worked: the page went full screen. (Swipe down or press Esc to leave.)'); });
+    });
+    ['fullscreenerror', 'webkitfullscreenerror'].forEach(function (n) {
+      d.addEventListener(n, function () { show(false, 'Refused: the browser said no to full screen.'); });
+    });
+    d.getElementById('fs-try').onclick = function () {
+      done = false; li.className = ''; li.querySelector('.mark').textContent = '…'; detail.textContent = 'Asking…';
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) { show(false, 'Not supported: this browser has no way for a page to go full screen.'); return; }
+      try {
+        var p = req.call(el);
+        if (p && p.catch) p.catch(function (e) { show(false, 'Refused: ' + (e && e.message ? e.message : 'the browser said no.')); });
+      } catch (e) { show(false, 'Refused: ' + e.message); return; }
+      timer = setTimeout(function () { if (!on()) show(false, 'Ignored: nothing happened after 2 seconds, so the browser is silently blocking it.'); }, 2000);
+    };
   })();
 
   document.getElementById('device').textContent =
