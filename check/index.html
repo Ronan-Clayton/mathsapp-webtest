@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connection check</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #fff; --text: #1d1d1f; --muted: #6e6e73; --line: #e3e3e0;
+          --ok: #1a7f37; --bad: #c62828; --wait: #8a8a8e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161617; --card: #212123; --text: #f2f2f2; --muted: #a1a1a6; --line: #333336;
+            --ok: #4ac26b; --bad: #ff6b6b; --wait: #8a8a8e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; }
+  ol { list-style: none; padding: 0; margin: 0; }
+  li { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+       padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; }
+  .mark { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+          color: #fff; font-weight: 700; background: var(--wait); }
+  .ok .mark { background: var(--ok); }
+  .bad .mark { background: var(--bad); }
+  .name { font-weight: 600; }
+  .detail { color: var(--muted); font-size: 15px; word-break: break-word; }
+  .show { margin-top: 10px; }
+  #summary { margin-top: 20px; padding: 14px 16px; border-radius: 12px; font-weight: 600;
+             background: var(--card); border: 1px solid var(--line); }
+  #device { margin-top: 16px; color: var(--muted); font-size: 13px; word-break: break-word; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Connection check</h1>
+  <p class="lead">Wait about 10 seconds, then take a screenshot of the whole page and send it back. Thank you!</p>
+
+  <ol>
+    <li id="site" class="ok"><div class="mark">✓</div><div>
+      <div class="name">1. This website</div>
+      <div class="detail">If you can read this, the site itself isn't blocked.</div></div></li>
+
+    <li id="maths"><div class="mark">…</div><div>
+      <div class="name">2. Maths fonts</div>
+      <div class="detail">Checking…</div></div></li>
+
+    <li id="demo"><div class="mark">…</div><div>
+      <div class="name">3. The demo itself</div>
+      <div class="detail">Checking…</div></div></li>
+
+    <li id="diagram"><div class="mark">…</div><div>
+      <div class="name">4. Diagram</div>
+      <div class="detail">You should see a circle with a shaded slice, labelled 72° and 6 cm.</div>
+      <div class="show">
+        <svg id="svg" width="180" height="150" viewBox="0 0 180 150" role="img" aria-label="Circle with a shaded sector">
+          <circle cx="90" cy="75" r="60" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M90 75 L150 75 A60 60 0 0 0 108.54 17.94 Z" fill="#208AEF" fill-opacity="0.35" stroke="currentColor" stroke-width="2"/>
+          <text x="104" y="66" font-size="13" fill="currentColor">72°</text>
+          <text x="110" y="92" font-size="13" fill="currentColor">6 cm</text>
+        </svg>
+      </div></div></li>
+
+    <li id="storage"><div class="mark">…</div><div>
+      <div class="name">5. Saving settings</div>
+      <div class="detail">Checking…</div></div></li>
+  </ol>
+
+  <div id="summary">Checking…</div>
+  <div id="device"></div>
+</main>
+
+<script>
+  // Everything the demo needs is on this same site; these check the parts a school filter could still block.
+  var results = { site: true };
+
+  function set(id, ok, text) {
+    var li = document.getElementById(id);
+    li.className = ok ? 'ok' : 'bad';
+    li.querySelector('.mark').textContent = ok ? '✓' : '✕';
+    li.querySelector('.detail').textContent = text;
+    results[id] = ok;
+    summarise();
+  }
+
+  function summarise() {
+    var ids = ['site', 'maths', 'demo', 'diagram', 'storage'];
+    var done = ids.filter(function (k) { return k in results; });
+    var el = document.getElementById('summary');
+    if (done.length < ids.length) { el.textContent = 'Checking… (' + done.length + ' of ' + ids.length + ')'; return; }
+    var bad = ids.filter(function (k) { return !results[k]; }).length;
+    el.textContent = bad === 0 ? 'All 5 checks passed.' : bad + ' of 5 checks failed.';
+    el.style.color = bad === 0 ? 'var(--ok)' : 'var(--bad)';
+  }
+
+  function reach(id, url, okText) {
+    var timer = setTimeout(function () { set(id, false, 'No reply after 10 seconds.'); }, 10000);
+    fetch(url, { cache: 'no-store' })
+      .then(function (r) {
+        clearTimeout(timer);
+        if (id in results) return;
+        set(id, r.ok, r.ok ? okText : 'Blocked (reply ' + r.status + ').');
+      })
+      .catch(function (e) { clearTimeout(timer); if (!(id in results)) set(id, false, 'Blocked or unreachable (' + e.message + ').'); });
+  }
+
+  // 2. The fonts KaTeX draws the maths with. 3. The demo's start page.
+  reach('maths', '../katex/fonts/KaTeX_Main-Regular.woff2', 'Loaded.');
+  reach('demo', '../', 'Reached. Open it from the main address.');
+
+  // 4. The app draws diagrams as SVG; check the browser laid this one out.
+  (function () {
+    try {
+      var box = document.getElementById('svg').getBBox();
+      set('diagram', box.width > 100,
+          'Drawn. You should see a circle with a shaded slice, labelled 72° and 6 cm.');
+    } catch (e) { set('diagram', false, 'Could not draw: ' + e.message); }
+  })();
+
+  // 5. The app remembers settings (e.g. the Calculator switch) in the browser's storage.
+  (function () {
+    try {
+      localStorage.setItem('__check', '1');
+      var ok = localStorage.getItem('__check') === '1';
+      localStorage.removeItem('__check');
+      set('storage', ok, ok ? 'Settings can be saved.' : 'Settings could not be read back.');
+    } catch (e) { set('storage', false, 'Saving is blocked (' + e.message + '). Settings would be forgotten.'); }
+  })();
+
+  document.getElementById('device').textContent =
+    new Date().toLocaleString('en-GB') + ' · ' + navigator.userAgent;
+</script>
+</body>
+</html>
